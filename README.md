@@ -29,7 +29,7 @@ pip install -r requirements.txt
 
 1. Clone the repository
 ```bash
-git clone
+git clone https://github.com/teverist/SchellingSim.git
 ```
 
 2. Create a virtual environment using the following command:
@@ -46,14 +46,6 @@ venv\Scripts\activate
 ```bash
 pip install -r requirements.txt
 ```
-
-# Usage
-
-To create the simulation, import the `Schelling` class from the `GOATs' module and create an instance of the class. The `Schelling` class takes the following parameters:
-
-- `grid_size` (tuple): The size of the grid (m, n).
-
-
 
 # How it works
 
