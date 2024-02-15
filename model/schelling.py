@@ -170,7 +170,8 @@ class Schelling:
                             all_neighbors += 1
                             if neighbor._type == current_agent._type:
                                 same_neighbors += 1
-        
+
+        neighbor_satisfaction = 0.5
         if all_neighbors != 0:
             neighbor_satisfaction = same_neighbors / all_neighbors
 
