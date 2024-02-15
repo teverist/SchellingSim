@@ -9,9 +9,14 @@ import os
 
 from agent import Agent, Person
 
+class GridPoint:
+    def __init__(self, agent=None, land_value=0.0):
+        self.agent = agent
+        self.land_value = land_value
+
 
 class Schelling:
-    def __init__(self, grid_size: tuple, vacant_ratio: int, num_groups: int, tolerance: float) -> None:
+    def __init__(self, grid_size: tuple, vacant_ratio: int, num_groups: int, tolerance_higher: float, tolerance_lower: float, valuable_area_start: tuple, valuable_area_end: tuple, land_value: float) -> None:
         """
         Initialise the Schelling's model simulation.
 
@@ -19,12 +24,20 @@ class Schelling:
             grid_size (tuple): The size of the grid (m,n).
             vacant_ratio (float): The ratio of vacant cells in the grid.
             num_groups (int): The number of groups of agents in the grid.
-            tolerance (float): The tolerance threshold of agents. A number between 0 and 1, representing the minimum proportion of same group neighbours for an agent to be satisfied.
+            tolerance_higher (float): The tolerance threshold of agents with greater tolerance. A number between 0 and 1, representing the minimum proportion of same group neighbours for an agent to be satisfied.
+            tolerance_higher (float): The tolerance threshold of agents with less tolerance
+            valuable_area_start (tuple): The start coordinates of the valuable area (start_x, start_y).
+            valuable_area_end (tuple): The end coordinates of the valuable area (end_x, end_y).
+            land_value (float): The value assigned to the land within the valuable area.
         """
         self._grid_size: tuple = grid_size
         self._vacant_ratio: int = vacant_ratio
         self._num_groups: int = num_groups
-        self._tolerance: float = tolerance
+        self._tolerance_higher: float = tolerance_higher
+        self._tolerance_lower: float = tolerance_lower
+        self._valuable_area_start: tuple = valuable_area_start
+        self._valuable_area_end: tuple = valuable_area_end
+        self._land_value: float = land_value
         self.grid: np.ndarray = None
         self._empty_cells: list = None
         self._next = [i+1 for i in range(self._grid_size[0]-1)]
@@ -37,7 +50,7 @@ class Schelling:
         self._num_agents_moved: int = 0
 
     def __repr__(self) -> str:
-        return f"Schelling(grid_size={self._grid_size}, vacant_ratio={self._vacant_ratio}, num_groups={self._num_groups}, tolerance={self._tolerance})"
+        return f"Schelling(grid_size={self._grid_size}, vacant_ratio={self._vacant_ratio}, num_groups={self._num_groups}, tolerance_higher={self._tolerance_higher}, tolerace_lower={self._tolerance_lower})"
 
     def _initialise_grid(self) -> None:
         """
@@ -53,12 +66,18 @@ class Schelling:
             for j in range(self._grid_size[1]):
                 r = random.randint(0, 100)
                 if r <= self._vacant_ratio:
-                    self.grid[i][j] = Person()
+                    self.grid[i][j] = GridPoint(agent=Person(self._tolerance_higher, self._tolerance_lower), land_value=0.0) 
                 else:
-                    self.grid[i][j] = 0
+                    self.grid[i][j] = GridPoint(agent=None, land_value=0.0) 
                     self._empty.append([i,j])
 
-        self._visualise_grid("results/initial_schelling.png")
+        start_x, start_y = self._valuable_area_start
+        end_x, end_y = self._valuable_area_end
+        for i in range(start_x, end_x):
+            for j in range(start_y, end_y):
+                self.grid[i][j].land_value = 1.0  # Set higher land value within the valuable area
+
+        self._visualise_grid("model/results/initial_schelling.png")
 
     
     def run_simulation(self, max_iterations: int | None) -> None:
@@ -85,7 +104,7 @@ class Schelling:
                 if self._satisfaction == 1 or self._iterations_to_equilibrium > 1e7:
                     break
         
-        self._visualise_grid("results/schelling.png")
+        self._visualise_grid("model/results/schelling.png")
 
 
 
@@ -95,13 +114,22 @@ class Schelling:
         """
         for i in range(self._grid_size[0]):
             for j in range(self._grid_size[1]):
-                if self.grid[i][j] != 0:
+                current_cell = self.grid[i][j]
+                if current_cell.agent is not None:
                     if self._is_agent_satisfied(i,j) == False:
-                        _ = random.choice(self._empty)
-                        self._empty.remove(_)
-                        self.grid[_[0]][_[1]] = Person()
-                        self.grid[_[0]][_[1]]._type = self.grid[i][j]._type
-                        self.grid[i][j] = 0
+                        empty_cell = random.choice(self._empty)
+                        self._empty.remove(empty_cell)
+
+                        new_agent = Person(self._tolerance_higher, self._tolerance_lower)
+                        new_agent._type = current_cell.agent._type  # Access the agent's type directly
+                        self.grid[empty_cell[0]][empty_cell[1]].agent = new_agent
+                        current_cell.agent = None
+
+                        # self.grid[_[0]][_[1]] = Person(self._tolerance_higher, self._tolerance_lower)
+                        # self.grid[_[0]][_[1]]._type = self.grid[i][j]._type
+                        # self.grid[i][j].agent = None
+
+
                         self._empty.append([i,j])
                         self._num_agents_moved += 1
 
@@ -126,45 +154,33 @@ class Schelling:
                     num_same_neighbours += 1
         return num_same_neighbours
     
-
-    def _is_agent_satisfied(self, x: int, y: int) -> bool:
-        [all, the_same] = [0, 0]
-        if self.grid[self._next[x]][y] != 0:
-            all += 1
-            if self.grid[self._next[x]][y]._type == self.grid[x][y]._type:
-                the_same += 1
-        if self.grid[x][self._next[y]] != 0:
-            all += 1
-            if self.grid[x][self._next[y]]._type == self.grid[x][y]._type:
-                the_same += 1
-        if self.grid[x][self._previous[y]] != 0:
-            all += 1
-            if self.grid[x][self._previous[y]]._type == self.grid[x][y]._type:
-                the_same += 1
-        if self.grid[self._previous[x]][y] != 0:
-            all += 1
-            if self.grid[self._previous[x]][y]._type == self.grid[x][y]._type:
-                the_same += 1
-        if self.grid[self._previous[x]][self._previous[y]] != 0:
-            all += 1
-            if self.grid[self._previous[x]][self._previous[y]]._type == self.grid[x][y]._type:
-                the_same += 1
-        if self.grid[self._next[x]][self._previous[y]] != 0:
-            all += 1
-            if self.grid[self._next[x]][self._previous[y]]._type == self.grid[x][y]._type:
-                the_same += 1
-        if self.grid[self._next[x]][self._next[y]] != 0:
-            all += 1
-            if self.grid[self._next[x]][self._next[y]]._type == self.grid[x][y]._type:
-                the_same += 1
-        if self.grid[self._previous[x]][self._next[y]] != 0:
-            all += 1
-            if self.grid[self._previous[x]][self._next[y]]._type == self.grid[x][y]._type:
-                the_same += 1
-        if all != 0:
-            return False if the_same/all < self._tolerance else True
-        return False
     
+    def _is_agent_satisfied(self, x: int, y: int) -> bool:
+        all_neighbors = 0
+        same_neighbors = 0
+        current_agent = self.grid[x][y].agent
+        current_land_value = self.grid[x][y].land_value
+        if current_agent is not None:
+            # Check all eight neighbors
+            for i in range(-1, 2):
+                for j in range(-1, 2):
+                    if (i != 0 or j != 0) and 0 <= x + i < self._grid_size[0] and 0 <= y + j < self._grid_size[1]:
+                        neighbor = self.grid[x + i][y + j].agent
+                        if neighbor is not None:
+                            all_neighbors += 1
+                            if neighbor._type == current_agent._type:
+                                same_neighbors += 1
+        
+        if all_neighbors != 0:
+            neighbor_satisfaction = same_neighbors / all_neighbors
+
+        combined_satisfaction = (neighbor_satisfaction + current_land_value) / 2
+
+        if current_agent._subgroup_id == 1:
+            return combined_satisfaction >= self._tolerance_higher
+        else:
+            return combined_satisfaction >= self._tolerance_lower
+        
 
     def _visualise_grid(self, filename: str | None) -> None:
         """
@@ -184,8 +200,8 @@ class Schelling:
 
         for i in range(self._grid_size[0]):
             for j in range(self._grid_size[1]):
-                if self.grid[i][j] != 0:
-                    plotGrid[i][j] = self.grid[i][j]._type
+                if self.grid[i][j].agent is not None:
+                    plotGrid[i][j] = self.grid[i][j].agent._type
 
         plt.imshow(plotGrid, cmap=tmp)
         plt.legend(handles=patches,shadow=True, facecolor='#6A6175',
@@ -208,6 +224,6 @@ class Schelling:
         
 
 if __name__ == "__main__":
-    schelling = Schelling((50,50), 90, 2, 0.6)
+    schelling = Schelling((50,50), 90, 2, 0.6, 0.3, (20,20), (30,30), 0.5)
     schelling.run_simulation(max_iterations=1000)
     schelling.create_metrics()
