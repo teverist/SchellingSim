@@ -3,7 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
-from model.schelling import Schelling
+from lib.model.schelling import Schelling
+
 
 class TestSchelling(unittest.TestCase):
     def setUp(self):
