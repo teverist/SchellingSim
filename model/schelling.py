@@ -1,10 +1,15 @@
 # This file contains the Schelling class, used to simulate Schelling's model of segregation.
+import matplotlib
+matplotlib.use("TkAgg")
+
+from matplotlib import animation
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import matplotlib as mpl
 import random
 import os
+
 
 
 from agent import Agent, Person
@@ -48,7 +53,7 @@ class Schelling:
         # Logging metrics
         self._iterations_to_equilibrium: int = 0
         self._num_agents_moved: int = 0
-
+        
     def __repr__(self) -> str:
         return f"Schelling(grid_size={self._grid_size}, vacant_ratio={self._vacant_ratio}, num_groups={self._num_groups}, tolerance_higher={self._tolerance_higher}, tolerace_lower={self._tolerance_lower})"
 
@@ -77,7 +82,7 @@ class Schelling:
             for j in range(start_y, end_y):
                 self.grid[i][j].land_value = 1.0  # Set higher land value within the valuable area
 
-        self._visualise_grid("model/results/initial_schelling.png")
+        self._visualise_grid("results/initial_schelling.png")
 
     
     def run_simulation(self, max_iterations: int | None) -> None:
@@ -89,25 +94,32 @@ class Schelling:
         """
         self._initialise_grid()
 
-        if max_iterations is not None:
-            for _ in range(max_iterations):
-                self._iterations_to_equilibrium += 1
-                self._update_grid()   
+        fig, ax = plt.subplots()
+
+        def update(frame):
+            ax.clear()
+            self._iterations_to_equilibrium += 1
+            self._update_grid()
+            self._visualise_animated_grid()
+            if self._iterations_to_equilibrium > max_iterations:
+                fig.canvas.draw()
+                ani.event_source.stop()
+                ani.save("results/schelling_animation.gif", writer="pillow", fps=10)
+            
+
+        if max_iterations is not None: 
+            ani = animation.FuncAnimation(fig, update, frames=max_iterations, repeat=False)
         else:
-            print(f"Running until equilibrium is reached...")
+            print(f"Running until all agents are satisfied or until maximum limit is reached...")
             print(f"WARNING: THIS MAY TAKE A LONG TIME.")
-
-            # Check for equilibrium
-            while True:
-                self._update_grid()
-                self._iterations_to_equilibrium += 1
-                if self._satisfaction == 1 or self._iterations_to_equilibrium > 1e7:
-                    break
-        
-        self._visualise_grid("model/results/schelling.png")
-
-
-
+            max_limit = 1e7
+            ani = animation.FuncAnimation(fig, update, frames=max_limit, repeat=False)
+            ani.save("results/schelling_animation.gif", writer="pillow", fps=10)
+            
+          # Adjust fps as needed
+        plt.show()
+        self._visualise_grid("results/schelling.png")
+    
     def _update_grid(self) -> None:
         """
         Update the grid based on the Schelling's model rules.
@@ -132,6 +144,59 @@ class Schelling:
 
                         self._empty.append([i,j])
                         self._num_agents_moved += 1
+                        
+    def _visualise_animated_grid(self) -> None:
+        """
+        Visualise the grid using plt object.
+        """
+        # grid to plot of results
+        plotGrid = np.zeros((self._grid_size[0], self._grid_size[1]))
+        # black, white and gray
+        colours = ['#49beaa','#ef767a','#456990']
+        cmap = {0: '#ef767a', 1:'#456990', 2:'#49beaa'}
+        labels = {0: 'empty', 1: 'Group A', 2: 'Group B'}
+        patches = [mpatches.Patch(color=cmap[i], label=labels[i]) for i in cmap]
+        tmp = mpl.colors.ListedColormap(colours)
+
+        for i in range(self._grid_size[0]):
+            for j in range(self._grid_size[1]):
+                if self.grid[i][j].agent is not None:
+                    plotGrid[i][j] = self.grid[i][j].agent._type
+
+        plt.imshow(plotGrid, cmap=tmp)
+        plt.legend(handles=patches, shadow=True, facecolor='#6A6175',
+                bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=12)
+        plt.title(f'Iteration: {self._iterations_to_equilibrium}')
+        plt.draw()
+
+    def _visualise_grid(self, filename: str | None) -> None:
+        """
+        Visualise the grid.
+
+        Parameters:
+            filename (str): The filename to save the visualisation.
+        """
+        # grid to plot of results
+        plotGrid = np.zeros((self._grid_size[0], self._grid_size[1]))
+        # black, white and gray
+        colours = ['#49beaa','#ef767a','#456990']
+        cmap = {0: '#ef767a', 1:'#456990', 2:'#49beaa'}
+        labels = {0:'empty', 1:'Group A', 2:'Group B', }
+        patches = [mpatches.Patch(color=cmap[i],label=labels[i]) for i in cmap]
+        tmp = mpl.colors.ListedColormap(colours)
+
+        for i in range(self._grid_size[0]):
+            for j in range(self._grid_size[1]):
+                if self.grid[i][j].agent is not None:
+                    plotGrid[i][j] = self.grid[i][j].agent._type
+
+        plt.imshow(plotGrid, cmap=tmp)
+        plt.legend(handles=patches,shadow=True, facecolor='#6A6175',
+                    bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=12)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.savefig(filename)
+        plt.close()
 
 
     def _count_same_neighbours(self, i: int, j: int) -> int:
@@ -154,7 +219,7 @@ class Schelling:
                     num_same_neighbours += 1
         return num_same_neighbours
     
-    
+
     def _is_agent_satisfied(self, x: int, y: int) -> bool:
         all_neighbors = 0
         same_neighbors = 0
@@ -183,36 +248,6 @@ class Schelling:
             return combined_satisfaction >= self._tolerance_lower
         
 
-    def _visualise_grid(self, filename: str | None) -> None:
-        """
-        Visualise the grid.
-
-        Parameters:
-            filename (str): The filename to save the visualisation.
-        """
-        # grid to plot of results
-        plotGrid = np.zeros((self._grid_size[0], self._grid_size[1]))
-        # black, white and gray
-        colours = ['#969792','#FFFFFF','#000000']
-        cmap = {0: '#FFFFFF', 1:'#000000', 2:'#969792'}
-        labels = {0:'empty', 1:'Group A', 2:'Group B', }
-        patches = [mpatches.Patch(color=cmap[i],label=labels[i]) for i in cmap]
-        tmp = mpl.colors.ListedColormap(colours)
-
-        for i in range(self._grid_size[0]):
-            for j in range(self._grid_size[1]):
-                if self.grid[i][j].agent is not None:
-                    plotGrid[i][j] = self.grid[i][j].agent._type
-
-        plt.imshow(plotGrid, cmap=tmp)
-        plt.legend(handles=patches,shadow=True, facecolor='#6A6175',
-                    bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=12)
-        plt.xticks(fontsize=12)
-        plt.yticks(fontsize=12)
-        plt.savefig(filename)
-        plt.close()
-
-
     def create_metrics(self) -> float:
         """
         Create metrics for the Schelling's model simulation.
@@ -225,6 +260,6 @@ class Schelling:
         
 
 if __name__ == "__main__":
-    schelling = Schelling((50,50), 90, 2, 0.6, 0.3, (20,20), (30,30), 0.5)
+    schelling = Schelling((50,50), 90, 2, 0.6, 0.3, (20,20), (30,30), 0.5)    
     schelling.run_simulation(max_iterations=1000)
     schelling.create_metrics()
