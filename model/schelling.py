@@ -12,7 +12,7 @@ import os
 
 
 
-from model.agent import Agent, Person
+from agent import Agent, Person
 
 class GridPoint:
     def __init__(self, agent=None, land_value=0.0):
@@ -82,7 +82,7 @@ class Schelling:
             for j in range(start_y, end_y):
                 self.grid[i][j].land_value = 1.0  # Set higher land value within the valuable area
 
-        self._visualise_grid("model/results/initial_schelling.png")
+        self._visualise_grid("results/initial_schelling.png")
 
     
     def run_simulation(self, max_iterations: int | None) -> None:
@@ -101,7 +101,7 @@ class Schelling:
             self._iterations_to_equilibrium += 1
             self._update_grid()
             self._visualise_animated_grid()
-            if self._satisfaction == 1 or self._iterations_to_equilibrium > max_iterations:
+            if self._iterations_to_equilibrium > max_iterations:
                 fig.canvas.draw()
                 ani.event_source.stop()
                 ani.save("results/schelling_animation.gif", writer="pillow", fps=10)
@@ -119,7 +119,32 @@ class Schelling:
           # Adjust fps as needed
         plt.show()
         self._visualise_grid("results/schelling.png")
+    
+    def _update_grid(self) -> None:
+        """
+        Update the grid based on the Schelling's model rules.
+        """
+        for i in range(self._grid_size[0]):
+            for j in range(self._grid_size[1]):
+                current_cell = self.grid[i][j]
+                if current_cell.agent is not None:
+                    if self._is_agent_satisfied(i,j) == False:
+                        empty_cell = random.choice(self._empty)
+                        self._empty.remove(empty_cell)
 
+                        new_agent = Person(self._tolerance_higher, self._tolerance_lower)
+                        new_agent._type = current_cell.agent._type  # Access the agent's type directly
+                        self.grid[empty_cell[0]][empty_cell[1]].agent = new_agent
+                        current_cell.agent = None
+
+                        # self.grid[_[0]][_[1]] = Person(self._tolerance_higher, self._tolerance_lower)
+                        # self.grid[_[0]][_[1]]._type = self.grid[i][j]._type
+                        # self.grid[i][j].agent = None
+
+
+                        self._empty.append([i,j])
+                        self._num_agents_moved += 1
+                        
     def _visualise_animated_grid(self) -> None:
         """
         Visualise the grid using plt object.
@@ -135,30 +160,43 @@ class Schelling:
 
         for i in range(self._grid_size[0]):
             for j in range(self._grid_size[1]):
-                if self.grid[i][j] != 0:
-                    plotGrid[i][j] = self.grid[i][j]._type
+                if self.grid[i][j].agent is not None:
+                    plotGrid[i][j] = self.grid[i][j].agent._type
 
         plt.imshow(plotGrid, cmap=tmp)
         plt.legend(handles=patches, shadow=True, facecolor='#6A6175',
                 bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=12)
         plt.title(f'Iteration: {self._iterations_to_equilibrium}')
         plt.draw()
-    
-    def _update_grid(self) -> None:
+
+    def _visualise_grid(self, filename: str | None) -> None:
         """
-        Update the grid based on the Schelling's model rules.
+        Visualise the grid.
+
+        Parameters:
+            filename (str): The filename to save the visualisation.
         """
+        # grid to plot of results
+        plotGrid = np.zeros((self._grid_size[0], self._grid_size[1]))
+        # black, white and gray
+        colours = ['#49beaa','#ef767a','#456990']
+        cmap = {0: '#ef767a', 1:'#456990', 2:'#49beaa'}
+        labels = {0:'empty', 1:'Group A', 2:'Group B', }
+        patches = [mpatches.Patch(color=cmap[i],label=labels[i]) for i in cmap]
+        tmp = mpl.colors.ListedColormap(colours)
+
         for i in range(self._grid_size[0]):
             for j in range(self._grid_size[1]):
-                if self.grid[i][j] != 0:
-                    if self._is_agent_satisfied(i,j) == False:
-                        _ = random.choice(self._empty)
-                        self._empty.remove(_)
-                        self.grid[_[0]][_[1]] = Person()
-                        self.grid[_[0]][_[1]]._type = self.grid[i][j]._type
-                        self.grid[i][j] = 0
-                        self._empty.append([i,j])
-                        self._num_agents_moved += 1
+                if self.grid[i][j].agent is not None:
+                    plotGrid[i][j] = self.grid[i][j].agent._type
+
+        plt.imshow(plotGrid, cmap=tmp)
+        plt.legend(handles=patches,shadow=True, facecolor='#6A6175',
+                    bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=12)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.savefig(filename)
+        plt.close()
 
 
     def _count_same_neighbours(self, i: int, j: int) -> int:
@@ -183,71 +221,32 @@ class Schelling:
     
 
     def _is_agent_satisfied(self, x: int, y: int) -> bool:
-        [all, the_same] = [0, 0]
-        if self.grid[self._next[x]][y] != 0:
-            all += 1
-            if self.grid[self._next[x]][y]._type == self.grid[x][y]._type:
-                the_same += 1
-        if self.grid[x][self._next[y]] != 0:
-            all += 1
-            if self.grid[x][self._next[y]]._type == self.grid[x][y]._type:
-                the_same += 1
-        if self.grid[x][self._previous[y]] != 0:
-            all += 1
-            if self.grid[x][self._previous[y]]._type == self.grid[x][y]._type:
-                the_same += 1
-        if self.grid[self._previous[x]][y] != 0:
-            all += 1
-            if self.grid[self._previous[x]][y]._type == self.grid[x][y]._type:
-                the_same += 1
-        if self.grid[self._previous[x]][self._previous[y]] != 0:
-            all += 1
-            if self.grid[self._previous[x]][self._previous[y]]._type == self.grid[x][y]._type:
-                the_same += 1
-        if self.grid[self._next[x]][self._previous[y]] != 0:
-            all += 1
-            if self.grid[self._next[x]][self._previous[y]]._type == self.grid[x][y]._type:
-                the_same += 1
-        if self.grid[self._next[x]][self._next[y]] != 0:
-            all += 1
-            if self.grid[self._next[x]][self._next[y]]._type == self.grid[x][y]._type:
-                the_same += 1
-        if self.grid[self._previous[x]][self._next[y]] != 0:
-            all += 1
-            if self.grid[self._previous[x]][self._next[y]]._type == self.grid[x][y]._type:
-                the_same += 1
-        if all != 0:
-            return False if the_same/all < self._tolerance else True
-        return False
+        all_neighbors = 0
+        same_neighbors = 0
+        current_agent = self.grid[x][y].agent
+        current_land_value = self.grid[x][y].land_value
+        if current_agent is not None:
+            # Check all eight neighbors
+            for i in range(-1, 2):
+                for j in range(-1, 2):
+                    if (i != 0 or j != 0) and 0 <= x + i < self._grid_size[0] and 0 <= y + j < self._grid_size[1]:
+                        neighbor = self.grid[x + i][y + j].agent
+                        if neighbor is not None:
+                            all_neighbors += 1
+                            if neighbor._type == current_agent._type:
+                                same_neighbors += 1
+
+        neighbor_satisfaction = 0.5
+        if all_neighbors != 0:
+            neighbor_satisfaction = same_neighbors / all_neighbors
+
+        combined_satisfaction = (neighbor_satisfaction + current_land_value) / 2
+
+        if current_agent._subgroup_id == 1:
+            return combined_satisfaction >= self._tolerance_higher
+        else:
+            return combined_satisfaction >= self._tolerance_lower
         
-    def _visualise_grid(self, filename: str | None) -> None:
-        """
-        Visualise the grid.
-
-        Parameters:
-            filename (str): The filename to save the visualisation.
-        """
-        # grid to plot of results
-        plotGrid = np.zeros((self._grid_size[0], self._grid_size[1]))
-        # black, white and gray
-        colours = ['#49beaa','#ef767a','#456990']
-        cmap = {0: '#ef767a', 1:'#456990', 2:'#49beaa'}
-        labels = {0:'empty', 1:'Group A', 2:'Group B', }
-        patches = [mpatches.Patch(color=cmap[i],label=labels[i]) for i in cmap]
-        tmp = mpl.colors.ListedColormap(colours)
-
-        for i in range(self._grid_size[0]):
-            for j in range(self._grid_size[1]):
-                if self.grid[i][j] != 0:
-                    plotGrid[i][j] = self.grid[i][j]._type
-
-        plt.imshow(plotGrid, cmap=tmp)
-        plt.legend(handles=patches,shadow=True, facecolor='#6A6175',
-                    bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=12)
-        plt.xticks(fontsize=12)
-        plt.yticks(fontsize=12)
-        plt.savefig(filename)
-        plt.close()
 
     def create_metrics(self) -> float:
         """
@@ -261,6 +260,6 @@ class Schelling:
         
 
 if __name__ == "__main__":
-    schelling = Schelling((50,50), 90, 2, 0.6)
+    schelling = Schelling((50,50), 90, 2, 0.6, 0.3, (20,20), (30,30), 0.5)    
     schelling.run_simulation(max_iterations=1000)
     schelling.create_metrics()
