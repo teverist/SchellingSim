@@ -76,6 +76,11 @@ class Schelling:
                     self.grid[i][j] = GridPoint(agent=None, land_value=0.0) 
                     self._empty.append([i,j])
 
+        for i in range(self._grid_size[0]):
+            for j in range(self._grid_size[1]):
+                if self.grid[i][j].agent is not None:
+                    self.grid[i][j].agent._type = random.randint(1, self._num_groups)  # Assign random group
+
         start_x, start_y = self._valuable_area_start
         end_x, end_y = self._valuable_area_end
         for i in range(start_x, end_x):
