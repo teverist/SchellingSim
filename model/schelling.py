@@ -53,6 +53,8 @@ class Schelling:
         # Logging metrics
         self._iterations_to_equilibrium: int = 0
         self._num_agents_moved: int = 0
+
+        self._current_directory = os.getcwd()
         
     def __repr__(self) -> str:
         return f"Schelling(grid_size={self._grid_size}, vacant_ratio={self._vacant_ratio}, num_groups={self._num_groups}, tolerance_higher={self._tolerance_higher}, tolerace_lower={self._tolerance_lower})"
@@ -87,7 +89,7 @@ class Schelling:
             for j in range(start_y, end_y):
                 self.grid[i][j].land_value = 1.0  # Set higher land value within the valuable area
 
-        self._visualise_grid("results/initial_schelling.png")
+        self._visualise_grid(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "initial_schelling.png")
 
     
     def run_simulation(self, max_iterations: int | None) -> None:
@@ -105,11 +107,11 @@ class Schelling:
             ax.clear()
             self._iterations_to_equilibrium += 1
             self._update_grid()
-            self._visualise_animated_grid()
+            self._visualise_animated_grid(max_iterations)
             if self._iterations_to_equilibrium > max_iterations:
                 fig.canvas.draw()
                 ani.event_source.stop()
-                ani.save("results/schelling_animation.gif", writer="pillow", fps=10)
+                ani.save(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schelling_animation.gif", writer="pillow", fps=10)
             
 
         if max_iterations is not None: 
@@ -119,11 +121,11 @@ class Schelling:
             print(f"WARNING: THIS MAY TAKE A LONG TIME.")
             max_limit = 1e7
             ani = animation.FuncAnimation(fig, update, frames=max_limit, repeat=False)
-            ani.save("results/schelling_animation.gif", writer="pillow", fps=10)
+            ani.save(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schelling_animation.gif", writer="pillow", fps=10)
             
-          # Adjust fps as needed
+        # Adjust fps as needed
         plt.show()
-        self._visualise_grid("results/schelling.png")
+        self._visualise_grid(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schelling.png")
     
     def _update_grid(self) -> None:
         """
@@ -142,15 +144,10 @@ class Schelling:
                         self.grid[empty_cell[0]][empty_cell[1]].agent = new_agent
                         current_cell.agent = None
 
-                        # self.grid[_[0]][_[1]] = Person(self._tolerance_higher, self._tolerance_lower)
-                        # self.grid[_[0]][_[1]]._type = self.grid[i][j]._type
-                        # self.grid[i][j].agent = None
-
-
                         self._empty.append([i,j])
                         self._num_agents_moved += 1
                         
-    def _visualise_animated_grid(self) -> None:
+    def _visualise_animated_grid(self, max_iterations) -> None:
         """
         Visualise the grid using plt object.
         """
@@ -173,6 +170,16 @@ class Schelling:
                 bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=12)
         plt.title(f'Iteration: {self._iterations_to_equilibrium}')
         plt.draw()
+
+        if max_iterations is not None:
+                one_third = round(max_iterations / 3)
+                two_thirds = round(2 * max_iterations / 3)
+                if self._iterations_to_equilibrium == one_third:
+                    plt.savefig(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schellingAtThird.png")
+                if self._iterations_to_equilibrium == two_thirds:
+                    plt.savefig(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schellingAtTwoThird.png")
+
+
 
     def _visualise_grid(self, filename: str | None) -> None:
         """
@@ -266,5 +273,5 @@ class Schelling:
 
 if __name__ == "__main__":
     schelling = Schelling((50,50), 90, 2, 0.6, 0.3, (20,20), (30,30), 0.5)    
-    schelling.run_simulation(max_iterations=1000)
+    schelling.run_simulation(max_iterations=30)
     schelling.create_metrics()
