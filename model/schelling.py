@@ -49,6 +49,7 @@ class Schelling:
         self._next.append(0)
         self._previous = [self._grid_size[0]-1]
         self._previous.extend([i for i in range(self._grid_size[0]-1)])
+        self._satisfaction_history = []
 
         # Logging metrics
         self._iterations_to_equilibrium: int = 0
@@ -109,15 +110,17 @@ class Schelling:
             self._update_grid()
             self._visualise_animated_grid(max_iterations)
             
+            current_satisfaction = self._calculate_average_satisfaction()
+            self._satisfaction_history.append(current_satisfaction)
+            
             if self._iterations_to_equilibrium > max_iterations:
-                # fig.canvas.draw()
+                #fig.canvas.draw()
                 ani.event_source.stop()
                 ani.save(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schelling_animation.gif", writer="pillow", fps=10)
             
 
         if max_iterations is not None: 
             ani = animation.FuncAnimation(fig, update, frames=max_iterations, repeat=False)
-            ani.save("results/schelling_animation.gif", writer="pillow", fps=10)
         else:
             print(f"Running until all agents are satisfied or until maximum limit is reached...")
             print(f"WARNING: THIS MAY TAKE A LONG TIME.")
@@ -127,6 +130,7 @@ class Schelling:
             
         # Adjust fps as needed
         plt.show()
+        self._equilibrium_average_satisfaction = self._calculate_average_satisfaction()
         self._visualise_grid(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schelling.png")
     
     def _update_grid(self) -> None:
@@ -321,8 +325,16 @@ class Schelling:
             return max(0, combined_satisfaction - self._tolerance_higher)
         else:
             return max(0, combined_satisfaction - self._tolerance_lower)
+        
+        
+    def _plot_satisfaction_history(self):
+        plt.plot(range(1, self._iterations_to_equilibrium + 1), self._satisfaction_history)
+        plt.xlabel('Number of Iterations')
+        plt.ylabel('Overall Satisfaction')
+        plt.title('Overall Satisfaction Over Iterations')
+        plt.savefig(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "satisifcation_history.png")
 
-    def create_metrics(self) -> float:
+    def _create_metrics(self) -> float:
         """
         Create metrics for the Schelling's model simulation.
         """
@@ -338,4 +350,5 @@ class Schelling:
 if __name__ == "__main__":
     schelling = Schelling((50,50), 90, 2, 0.6, 0.3, (20,20), (30,30), 0.5)    
     schelling.run_simulation(max_iterations=30)
-    schelling.create_metrics()
+    schelling._create_metrics()
+    schelling._plot_satisfaction_history()
