@@ -49,6 +49,7 @@ class Schelling:
         self._next.append(0)
         self._previous = [self._grid_size[0]-1]
         self._previous.extend([i for i in range(self._grid_size[0]-1)])
+        self._satisfaction_history = []
 
         # Logging metrics
         self._iterations_to_equilibrium: int = 0
@@ -108,8 +109,12 @@ class Schelling:
             self._iterations_to_equilibrium += 1
             self._update_grid()
             self._visualise_animated_grid(max_iterations)
+            
+            current_satisfaction = self._calculate_average_satisfaction()
+            self._satisfaction_history.append(current_satisfaction)
+            
             if self._iterations_to_equilibrium > max_iterations:
-                fig.canvas.draw()
+                #fig.canvas.draw()
                 ani.event_source.stop()
                 ani.save(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schelling_animation.gif", writer="pillow", fps=10)
             
@@ -125,6 +130,7 @@ class Schelling:
             
         # Adjust fps as needed
         plt.show()
+        self._equilibrium_average_satisfaction = self._calculate_average_satisfaction()
         self._visualise_grid(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schelling.png")
     
     def _update_grid(self) -> None:
@@ -203,6 +209,7 @@ class Schelling:
                     plotGrid[i][j] = self.grid[i][j].agent._type
 
         plt.imshow(plotGrid, cmap=tmp)
+        plt.title(f'Iteration: {self._iterations_to_equilibrium}')
         plt.legend(handles=patches,shadow=True, facecolor='#6A6175',
                     bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=12)
         plt.xticks(fontsize=12)
@@ -259,19 +266,89 @@ class Schelling:
         else:
             return combined_satisfaction >= self._tolerance_lower
         
+    def _calculate_average_satisfaction(self) -> float:
+        """
+        Calculate the average satisfaction of agents on the grid.
 
-    def create_metrics(self) -> float:
+        Returns:
+            float: The average satisfaction value.
+        """
+        total_satisfaction = 0
+        total_agents = 0
+
+        for i in range(self._grid_size[0]):
+            for j in range(self._grid_size[1]):
+                current_cell = self.grid[i][j]
+                if current_cell.agent is not None:
+                    total_satisfaction += self._calculate_agent_satisfaction(i, j)
+                    total_agents += 1
+
+        if total_agents == 0:
+            return 0  # Avoid division by zero
+
+        average_satisfaction = total_satisfaction / total_agents
+        return average_satisfaction
+
+    def _calculate_agent_satisfaction(self, x: int, y: int) -> float:
+        """
+        Calculate the satisfaction of a specific agent at position (x, y).
+
+        Parameters:
+            x (int): The row index of the agent.
+            y (int): The column index of the agent.
+
+        Returns:
+            float: The satisfaction value of the agent.
+        """
+        all_neighbors = 0
+        same_neighbors = 0
+        current_agent = self.grid[x][y].agent
+
+        if current_agent is not None:
+            # Check all eight neighbors
+            for i in range(-1, 2):
+                for j in range(-1, 2):
+                    if (i != 0 or j != 0) and 0 <= x + i < self._grid_size[0] and 0 <= y + j < self._grid_size[1]:
+                        neighbor = self.grid[x + i][y + j].agent
+                        if neighbor is not None:
+                            all_neighbors += 1
+                            if neighbor._type == current_agent._type:
+                                same_neighbors += 1
+
+        neighbor_satisfaction = 0.5
+        if all_neighbors != 0:
+            neighbor_satisfaction = same_neighbors / all_neighbors
+
+        combined_satisfaction = (neighbor_satisfaction + self.grid[x][y].land_value) / 2
+
+        if current_agent._subgroup_id == 1:
+            return max(0, combined_satisfaction - self._tolerance_higher)
+        else:
+            return max(0, combined_satisfaction - self._tolerance_lower)
+        
+        
+    def _plot_satisfaction_history(self):
+        plt.plot(range(1, self._iterations_to_equilibrium + 1), self._satisfaction_history)
+        plt.xlabel('Number of Iterations')
+        plt.ylabel('Overall Satisfaction')
+        plt.title('Overall Satisfaction Over Iterations')
+        plt.savefig(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "satisifcation_history.png")
+
+    def _create_metrics(self) -> float:
         """
         Create metrics for the Schelling's model simulation.
         """
         # Find average satisfaction of agents
         # Find number of iterations to reach equilibrium
         # Find number of agents that moved
+        print(f"Average satisfaction after equilibrium: {self._equilibrium_average_satisfaction}")
         print(f"Number of iterations to reach equilibrium: ", self._iterations_to_equilibrium)
         print(f"Number of agents that moved: ", self._num_agents_moved)
+    
         
 
 if __name__ == "__main__":
     schelling = Schelling((50,50), 90, 2, 0.6, 0.3, (20,20), (30,30), 0.5)    
     schelling.run_simulation(max_iterations=30)
-    schelling.create_metrics()
+    schelling._create_metrics()
+    schelling._plot_satisfaction_history()
