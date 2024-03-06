@@ -9,6 +9,8 @@ import matplotlib.patches as mpatches
 import matplotlib as mpl
 import random
 import os
+import time
+import logging
 
 
 
@@ -51,6 +53,13 @@ class Schelling:
         self._previous.extend([i for i in range(self._grid_size[0]-1)])
         self._satisfaction_history = []
 
+        # Seed random number generator for true randomness
+        random.seed(time.time())
+
+        # Logging
+        logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+        logging.info(f"Initialised Schelling's model with grid size {self._grid_size}, vacant ratio {self._vacant_ratio}, number of groups {self._num_groups}, tolerance higher {self._tolerance_higher}, tolerance lower {self._tolerance_lower}, valuable area start {self._valuable_area_start}, valuable area end {self._valuable_area_end}, land value {self._land_value}")
+
         # Logging metrics
         self._iterations_to_equilibrium: int = 0
         self._num_agents_moved: int = 0
@@ -92,6 +101,21 @@ class Schelling:
 
         self._visualise_grid(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "initial_schelling.png")
 
+
+    def _is_equilibrium(self) -> bool:
+        """
+        Check if the grid is in equilibrium.
+
+        Returns:
+            bool: True if the grid is in equilibrium, False otherwise.
+        """
+        for i in range(self._grid_size[0]):
+            for j in range(self._grid_size[1]):
+                if self.grid[i][j].agent is not None:
+                    if not self._is_agent_satisfied(i, j):
+                        return False
+        return True
+
     
     def run_simulation(self, max_iterations: int | None) -> None:
         """
@@ -100,11 +124,17 @@ class Schelling:
         Parameters:
             max_iterations (int): The maximum number of iterations to run the simulation for. If None, the simulation runs until equilibrium is reached.
         """
-        self._initialise_grid()
-
         fig, ax = plt.subplots()
 
+        self._initialise_grid()
+
+        ani = None
+
         def update(frame):
+            if self._iterations_to_equilibrium > max_iterations or self._is_equilibrium():
+                #fig.canvas.draw()
+                ani.event_source.stop()
+                ani.save(os.path.join(self._current_directory, "model", "results", "schelling_animation.gif"), writer="pillow", fps=10)
             ax.clear()
             self._iterations_to_equilibrium += 1
             self._update_grid()
@@ -112,26 +142,22 @@ class Schelling:
             
             current_satisfaction = self._calculate_average_satisfaction()
             self._satisfaction_history.append(current_satisfaction)
-            
-            if self._iterations_to_equilibrium > max_iterations:
-                #fig.canvas.draw()
-                ani.event_source.stop()
-                ani.save(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schelling_animation.gif", writer="pillow", fps=10)
+
             
 
-        if max_iterations is not None: 
-            ani = animation.FuncAnimation(fig, update, frames=max_iterations, repeat=False)
-        else:
-            print(f"Running until all agents are satisfied or until maximum limit is reached...")
-            print(f"WARNING: THIS MAY TAKE A LONG TIME.")
-            max_limit = 1e7
-            ani = animation.FuncAnimation(fig, update, frames=max_limit, repeat=False)
-            ani.save(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schelling_animation.gif", writer="pillow", fps=10)
-            
-        # Adjust fps as needed
+
+        if max_iterations is None:
+            max_iterations = 1e7
+            logging.warning(f"Running until all agents are satisfied or until maximum limit of {max_iterations} is reached...")
+            logging.warning(f"WARNING: THIS MAY TAKE A LONG TIME.")
+
+        ani = animation.FuncAnimation(fig, update, frames=max_iterations, repeat=False)
+        ani.save(os.path.join(self._current_directory, "model", "results", "schelling_animation.gif"), writer="pillow", fps=10)            
+
+
         plt.show()
         self._equilibrium_average_satisfaction = self._calculate_average_satisfaction()
-        self._visualise_grid(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schelling.png")
+        self._visualise_grid(os.path.join(self._current_directory, "model", "results", "schelling.png"))
     
     def _update_grid(self) -> None:
         """
@@ -214,6 +240,7 @@ class Schelling:
                     bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=12)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
+        plt.title(f'Iteration: {self._iterations_to_equilibrium}')
         plt.savefig(filename)
         plt.close()
 
@@ -341,9 +368,9 @@ class Schelling:
         # Find average satisfaction of agents
         # Find number of iterations to reach equilibrium
         # Find number of agents that moved
-        print(f"Average satisfaction after equilibrium: {self._equilibrium_average_satisfaction}")
-        print(f"Number of iterations to reach equilibrium: ", self._iterations_to_equilibrium)
-        print(f"Number of agents that moved: ", self._num_agents_moved)
+        logging.info(f"Average satisfaction after equilibrium: {self._equilibrium_average_satisfaction}")
+        logging.info(f"Number of iterations to reach equilibrium:  {self._iterations_to_equilibrium}")
+        logging.info(f"Number of agents that moved: {self._num_agents_moved}")
     
         
 
