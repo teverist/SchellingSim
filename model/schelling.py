@@ -21,7 +21,7 @@ class GridPoint:
 
 
 class Schelling:
-    def __init__(self, grid_size: tuple, vacant_ratio: int, num_groups: int, tolerance_higher: float, tolerance_lower: float, valuable_area_start: tuple, valuable_area_end: tuple, land_value: float) -> None:
+    def __init__(self, grid_size: tuple, vacant_ratio: int, num_groups: int, tolerance_higher: float, tolerance_lower: float, valuable_area_start: tuple, valuable_area_end: tuple, land_value: float, neighbor_satisfaction: float) -> None:
         """
         Initialise the Schelling's model simulation.
 
@@ -315,7 +315,7 @@ class Schelling:
                             if neighbor._type == current_agent._type:
                                 same_neighbors += 1
 
-        neighbor_satisfaction = 0.5
+        
         if all_neighbors != 0:
             neighbor_satisfaction = same_neighbors / all_neighbors
 
@@ -348,7 +348,7 @@ class Schelling:
         
 
 if __name__ == "__main__":
-    schelling = Schelling((50,50), 90, 2, 0.6, 0.3, (20,20), (30,30), 0.5)    
+    schelling = Schelling((50,50), 90, 2, 0.6, 0.3, (20,20), (30,30), 0.5, 0.5)    
     schelling.run_simulation(max_iterations=30)
     schelling._create_metrics()
     schelling._plot_satisfaction_history()
