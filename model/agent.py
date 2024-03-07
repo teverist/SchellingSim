@@ -35,8 +35,8 @@ class Person(Agent):
             subgroup_id (int): The subgroup identifier of the agent.
             preference (float): The preference for in-group neighbors. Currently hardcoded, should be made into argument
         """
-        self._type = random.choice([1, -1])
-        self._subgroup_id = random.choice([1, -1])
+        self._type = random.choice([1, 2])
+        self._subgroup_id = random.choice([1, 2])
         if (self._subgroup_id == 1):
             self._tolerance = tolerance_higher
         else:
