@@ -21,7 +21,7 @@ class GridPoint:
 
 
 class Schelling:
-    def __init__(self, grid_size: tuple, vacant_ratio: int, num_groups: int, tolerance_higher: float, tolerance_lower: float, valuable_area_start: tuple, valuable_area_end: tuple, land_value: float, neighbor_satisfaction: float) -> None:
+    def __init__(self, grid_size: tuple, vacant_ratio: int, num_groups: int, tolerance_higher: float, tolerance_lower: float, valuable_area_start: tuple, valuable_area_end: tuple, land_value: float, neighbor_satisfaction: float, neighbour_to_land_value_weight: float) -> None:
         """
         Initialise the Schelling's model simulation.
 
@@ -50,6 +50,8 @@ class Schelling:
         self._previous = [self._grid_size[0]-1]
         self._previous.extend([i for i in range(self._grid_size[0]-1)])
         self._satisfaction_history = []
+        self._base_neighbour_satisfaction = neighbor_satisfaction
+        self._neighbour_to_land_weight = neighbour_to_land_value_weight
 
         # Logging metrics
         self._iterations_to_equilibrium: int = 0
@@ -90,7 +92,7 @@ class Schelling:
             for j in range(start_y, end_y):
                 self.grid[i][j].land_value = 1.0  # Set higher land value within the valuable area
 
-        self._visualise_grid(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "initial_schelling.png")
+        self._visualise_grid(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schellingStart.png")
 
     
     def run_simulation(self, max_iterations: int | None) -> None:
@@ -131,7 +133,7 @@ class Schelling:
         # Adjust fps as needed
         plt.show()
         self._equilibrium_average_satisfaction = self._calculate_average_satisfaction()
-        self._visualise_grid(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schelling.png")
+        #self._visualise_grid(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schelling.png")
     
     def _update_grid(self) -> None:
         """
@@ -162,7 +164,7 @@ class Schelling:
         # black, white and gray
         colours = ['#49beaa','#ef767a','#456990']
         cmap = {0: '#ef767a', 1:'#456990', 2:'#49beaa'}
-        labels = {0: 'empty', 1: 'Group A', 2: 'Group B'}
+        labels = {0: 'Group A', 1: 'Group B', 2: 'empty'}
         patches = [mpatches.Patch(color=cmap[i], label=labels[i]) for i in cmap]
         tmp = mpl.colors.ListedColormap(colours)
 
@@ -184,6 +186,9 @@ class Schelling:
                     plt.savefig(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schellingAtThird.png")
                 if self._iterations_to_equilibrium == two_thirds:
                     plt.savefig(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schellingAtTwoThird.png")
+                if self._iterations_to_equilibrium == max_iterations:
+                    plt.savefig(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schellingFinished.png")
+
 
 
 
@@ -199,7 +204,7 @@ class Schelling:
         # black, white and gray
         colours = ['#49beaa','#ef767a','#456990']
         cmap = {0: '#ef767a', 1:'#456990', 2:'#49beaa'}
-        labels = {0:'empty', 1:'Group A', 2:'Group B', }
+        labels = {0:'Group A', 1:'Group B', 2:'empty', }
         patches = [mpatches.Patch(color=cmap[i],label=labels[i]) for i in cmap]
         tmp = mpl.colors.ListedColormap(colours)
 
@@ -318,8 +323,10 @@ class Schelling:
         
         if all_neighbors != 0:
             neighbor_satisfaction = same_neighbors / all_neighbors
+        else:
+            neighbor_satisfaction = self._base_neighbour_satisfaction
 
-        combined_satisfaction = (neighbor_satisfaction + self.grid[x][y].land_value) / 2
+        combined_satisfaction = ((neighbor_satisfaction * self._neighbour_to_land_weight) + (self.grid[x][y].land_value * (1 - self._neighbour_to_land_weight)))
 
         if current_agent._subgroup_id == 1:
             return max(0, combined_satisfaction - self._tolerance_higher)
@@ -346,9 +353,24 @@ class Schelling:
         print(f"Number of agents that moved: ", self._num_agents_moved)
     
         
+"""
+    Variables to test for regular schelling:
+        2nd: Vacant Ratio
+        4th & 5th: Higher & lower tolerance (set as same)
+        9th: neighbour satisfaction
 
+        Extra: Number of Iterations
+    Additional Variables to test for schelling extended
+        4th & 5th: Higher & lower tolerance
+        8th: Value of valuable land
+        10th: Weight of land value vs weight of neighbour preference
+        
+        Extensions:
+            3rd: number of groups
+            6th & 7th: valuable area start & end
+"""
 if __name__ == "__main__":
-    schelling = Schelling((50,50), 90, 2, 0.6, 0.3, (20,20), (30,30), 0.5, 0.5)    
-    schelling.run_simulation(max_iterations=30)
+    schelling = Schelling((50,50), 90, 2, 0.6, 0.3, (20,20), (30,30), 0.5, 0.5, 1)    
+    schelling.run_simulation(max_iterations=100)
     schelling._create_metrics()
     schelling._plot_satisfaction_history()
