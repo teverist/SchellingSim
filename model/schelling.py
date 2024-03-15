@@ -9,6 +9,7 @@ import matplotlib.patches as mpatches
 import matplotlib as mpl
 import random
 import os
+import time
 
 
 
@@ -53,6 +54,9 @@ class Schelling:
         self._base_neighbour_satisfaction = neighbor_satisfaction
         self._neighbour_to_land_weight = neighbour_to_land_value_weight
 
+        # Seed random for better randomization
+        random.seed(time.time())
+
         # Logging metrics
         self._iterations_to_equilibrium: int = 0
         self._num_agents_moved: int = 0
@@ -81,10 +85,10 @@ class Schelling:
                     self.grid[i][j] = GridPoint(agent=None, land_value=0.0) 
                     self._empty.append([i,j])
 
-        for i in range(self._grid_size[0]):
-            for j in range(self._grid_size[1]):
-                if self.grid[i][j].agent is not None:
-                    self.grid[i][j].agent._type = random.randint(1, self._num_groups)  # Assign random group
+        # for i in range(self._grid_size[0]):
+        #     for j in range(self._grid_size[1]):
+        #         if self.grid[i][j].agent is not None:
+        #             self.grid[i][j].agent._type = random.randint(1, self._num_groups)  # Assign random group
 
         start_x, start_y = self._valuable_area_start
         end_x, end_y = self._valuable_area_end
@@ -147,8 +151,7 @@ class Schelling:
                         empty_cell = random.choice(self._empty)
                         self._empty.remove(empty_cell)
 
-                        new_agent = Person(self._tolerance_higher, self._tolerance_lower)
-                        new_agent._type = current_cell.agent._type  # Access the agent's type directly
+                        new_agent = current_cell.agent
                         self.grid[empty_cell[0]][empty_cell[1]].agent = new_agent
                         current_cell.agent = None
 
@@ -161,23 +164,42 @@ class Schelling:
         """
         # grid to plot of results
         plotGrid = np.zeros((self._grid_size[0], self._grid_size[1]))
-        # black, white and gray
-        colours = ['#49beaa','#ef767a','#456990']
-        cmap = {0: '#ef767a', 1:'#456990', 2:'#49beaa'}
-        labels = {0: 'Group A', 1: 'Group B', 2: 'empty'}
-        patches = [mpatches.Patch(color=cmap[i], label=labels[i]) for i in cmap]
-        tmp = mpl.colors.ListedColormap(colours)
+        
+        type_subgroup_colours = {
+            11: '#6EB5FF',   # Type 1, Subgroup 1
+            9: '#ACE7FF',   # Type 1, Subgroup -1
+            -9: '#FFABAB',  # Type -1, Subgroup 1
+            -11: '#FFCBC1',  # Type -1, Subgroup -1 (or any other color)
+            0: '#716666'     # Empty cell
+        }
+
 
         for i in range(self._grid_size[0]):
             for j in range(self._grid_size[1]):
                 if self.grid[i][j].agent is not None:
-                    plotGrid[i][j] = self.grid[i][j].agent._type
+                    agent = self.grid[i][j].agent
+                    plotGrid[i][j] = agent._type * 10 + agent._subgroup_id # Horrible hack to get unique values for each type/subgroup combination
+                    #print(plotGrid[i][j])
+                else:
+                    plotGrid[i][j] = 0
 
-        plt.imshow(plotGrid, cmap=tmp)
-        plt.legend(handles=patches, shadow=True, facecolor='#6A6175',
-                bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=12)
+        # Create a color map using type_subgroup_colors
+        colours = type_subgroup_colours.values()
+        cmap = mpl.colors.ListedColormap(colours)
+
+        #print(colours)
+
+        # Plotting
+        plt.imshow(plotGrid, cmap='viridis')
         plt.title(f'Iteration: {self._iterations_to_equilibrium}')
+        
+        # Legend creation
+        # legend_patches = [mpatches.Patch(color=color, label=f'Type {value // 10}, Subgroup {value % 10}') for value, color in type_subgroup_colours.items() if value != 0]
+        # plt.legend(handles=legend_patches, shadow=True, facecolor='#6A6175', bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=12)
+        
+        # Draw the plot
         plt.draw()
+
 
         if max_iterations is not None:
                 one_third = round(max_iterations / 3)
@@ -202,23 +224,37 @@ class Schelling:
         # grid to plot of results
         plotGrid = np.zeros((self._grid_size[0], self._grid_size[1]))
         # black, white and gray
-        colours = ['#49beaa','#ef767a','#456990']
-        cmap = {0: '#ef767a', 1:'#456990', 2:'#49beaa'}
-        labels = {0:'Group A', 1:'Group B', 2:'empty', }
-        patches = [mpatches.Patch(color=cmap[i],label=labels[i]) for i in cmap]
-        tmp = mpl.colors.ListedColormap(colours)
+
+        type_subgroup_colours = {
+            11: '#6EB5FF',   # Type 1, Subgroup 1
+            9: '#ACE7FF',   # Type 1, Subgroup -1
+            -9: '#FFABAB',  # Type -1, Subgroup 1
+            -11: '#FFCBC1',  # Type -1, Subgroup -1 (or any other color)
+            0: '#716666'     # Empty cell
+        }
 
         for i in range(self._grid_size[0]):
             for j in range(self._grid_size[1]):
                 if self.grid[i][j].agent is not None:
-                    plotGrid[i][j] = self.grid[i][j].agent._type
+                    agent = self.grid[i][j].agent
+                    plotGrid[i][j] = agent._type * 10 + agent._subgroup_id # Horrible hack to get unique values for each type/subgroup combination
+                else:
+                    plotGrid[i][j] = 0
 
-        plt.imshow(plotGrid, cmap=tmp)
+        # Create a color map using type_subgroup_colors
+        colours = type_subgroup_colours.values()
+        cmap = mpl.colors.ListedColormap(colours)
+    
+
+        # Plotting with colour map
+        plt.imshow(plotGrid, cmap='viridis')
         plt.title(f'Iteration: {self._iterations_to_equilibrium}')
-        plt.legend(handles=patches,shadow=True, facecolor='#6A6175',
-                    bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=12)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
+
+        # Legend creation based on viridis color map
+        # legend_patches = [mpatches.Patch(color=color, label=f'Type {value // 10}, Subgroup {value % 10}') for value, color in type_subgroup_colours.items() if value != 0]
+        # plt.legend(handles=legend_patches, shadow=True, facecolor='#6A6175', bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=12)
         plt.savefig(filename)
         plt.close()
 
@@ -355,9 +391,9 @@ class Schelling:
         
 """
     Variables to test for regular schelling:
-        2nd: Vacant Ratio
+        2nd: Vacant Ratio - 66
         4th & 5th: Higher & lower tolerance (set as same)
-        9th: neighbour satisfaction
+        9th: neighbour satisfaction - 0
 
         Extra: Number of Iterations
     Additional Variables to test for schelling extended
@@ -370,7 +406,7 @@ class Schelling:
             6th & 7th: valuable area start & end
 """
 if __name__ == "__main__":
-    schelling = Schelling((50,50), 90, 2, 0.6, 0.3, (20,20), (30,30), 0.5, 0.5, 1)    
-    schelling.run_simulation(max_iterations=100)
+    schelling = Schelling((50,50), 80, 2, 0.6, 0.3, (20,20), (30,30), 0.5, 0.5, 1)    
+    schelling.run_simulation(max_iterations=10000)
     schelling._create_metrics()
     schelling._plot_satisfaction_history()

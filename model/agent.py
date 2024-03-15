@@ -1,5 +1,6 @@
 import random
 from abc import ABC, abstractmethod
+import time
 
 
 class Agent(ABC):
@@ -9,6 +10,8 @@ class Agent(ABC):
 
     def __init__(self) -> None:
         super().__init__()
+        random.seed(time.time())
+
 
 
 
