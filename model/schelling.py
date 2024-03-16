@@ -12,7 +12,7 @@ import os
 
 
 
-from agent import Agent, Person
+from model.agent import Person, Agent
 
 class GridPoint:
     def __init__(self, agent=None, land_value=0.0):
@@ -58,6 +58,14 @@ class Schelling:
         self._num_agents_moved: int = 0
 
         self._current_directory = os.getcwd()
+
+        # Set directory for results
+        # results in results/{high_tolerance}_{low_tolerance}_{valuable_area_start}_{valuable_area_end}_{land_value}_{neighbour_satisfaction}_{neighbour_to_land_value_weight}
+        self._current_directory = os.getcwd()
+        self._current_directory = os.path.join(self._current_directory, "results", f"{int(self._tolerance_higher*100)}_{int(self._tolerance_lower*100)}_{int(land_value*100)}_{int(neighbour_to_land_value_weight*100)}")
+        if not os.path.exists(self._current_directory):
+            os.makedirs(self._current_directory)
+
         
     def __repr__(self) -> str:
         return f"Schelling(grid_size={self._grid_size}, vacant_ratio={self._vacant_ratio}, num_groups={self._num_groups}, tolerance_higher={self._tolerance_higher}, tolerace_lower={self._tolerance_lower})"
@@ -92,7 +100,7 @@ class Schelling:
             for j in range(start_y, end_y):
                 self.grid[i][j].land_value = 1.0  # Set higher land value within the valuable area
 
-        self._visualise_grid(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schellingStart.png")
+        self._visualise_grid(os.path.join(self._current_directory, "schellingInitial.png"))
 
     
     def run_simulation(self, max_iterations: int | None) -> None:
@@ -104,36 +112,55 @@ class Schelling:
         """
         self._initialise_grid()
 
-        fig, ax = plt.subplots()
+        # fig, ax = plt.subplots()
 
-        def update(frame):
-            ax.clear()
+        # def update(frame):
+        #     ax.clear()
+        #     self._iterations_to_equilibrium += 1
+        #     self._update_grid()
+        #     self._visualise_animated_grid(max_iterations)
+            
+        #     current_satisfaction = self._calculate_average_satisfaction()
+        #     self._satisfaction_history.append(current_satisfaction)
+            
+        #     if self._iterations_to_equilibrium > max_iterations:
+        #         #fig.canvas.draw()
+        #         ani.event_source.stop()
+        #         ani.save(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schelling_animation.gif", writer="pillow", fps=10)
+            
+
+        # if max_iterations is not None: 
+        #     ani = animation.FuncAnimation(fig, update, frames=max_iterations, repeat=False)
+        # else:
+        #     print(f"Running until all agents are satisfied or until maximum limit is reached...")
+        #     print(f"WARNING: THIS MAY TAKE A LONG TIME.")
+        #     max_limit = 1e7
+        #     ani = animation.FuncAnimation(fig, update, frames=max_limit, repeat=False)
+        #     ani.save(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schelling_animation.gif", writer="pillow", fps=10)
+            
+        # # Adjust fps as needed
+        # plt.show()
+        # self._equilibrium_average_satisfaction = self._calculate_average_satisfaction()
+        # #self._visualise_grid(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schelling.png")
+
+        for _ in range(max_iterations):
             self._iterations_to_equilibrium += 1
             self._update_grid()
-            self._visualise_animated_grid(max_iterations)
             
+            one_third = round(max_iterations / 3)
+            two_thirds = round(2 * max_iterations / 3)
+            if self._iterations_to_equilibrium == one_third:
+                self._visualise_grid(os.path.join(self._current_directory, "schellingAtThird.png"))
+            if self._iterations_to_equilibrium == two_thirds:
+                self._visualise_grid(os.path.join(self._current_directory, "schellingAtTwoThird.png"))
+
             current_satisfaction = self._calculate_average_satisfaction()
             self._satisfaction_history.append(current_satisfaction)
-            
-            if self._iterations_to_equilibrium > max_iterations:
-                #fig.canvas.draw()
-                ani.event_source.stop()
-                ani.save(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schelling_animation.gif", writer="pillow", fps=10)
-            
-
-        if max_iterations is not None: 
-            ani = animation.FuncAnimation(fig, update, frames=max_iterations, repeat=False)
-        else:
-            print(f"Running until all agents are satisfied or until maximum limit is reached...")
-            print(f"WARNING: THIS MAY TAKE A LONG TIME.")
-            max_limit = 1e7
-            ani = animation.FuncAnimation(fig, update, frames=max_limit, repeat=False)
-            ani.save(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schelling_animation.gif", writer="pillow", fps=10)
-            
-        # Adjust fps as needed
-        plt.show()
-        self._equilibrium_average_satisfaction = self._calculate_average_satisfaction()
-        #self._visualise_grid(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schelling.png")
+            if current_satisfaction == 1:
+                break
+        
+        self._visualise_grid(os.path.join(self._current_directory, "schellingFinished.png"))
+        
     
     def _update_grid(self) -> None:
         """
@@ -147,47 +174,46 @@ class Schelling:
                         empty_cell = random.choice(self._empty)
                         self._empty.remove(empty_cell)
 
-                        new_agent = Person(self._tolerance_higher, self._tolerance_lower)
-                        new_agent._type = current_cell.agent._type  # Access the agent's type directly
-                        self.grid[empty_cell[0]][empty_cell[1]].agent = new_agent
+                        new_agent = current_cell.agent
                         current_cell.agent = None
+                        self.grid[empty_cell[0]][empty_cell[1]].agent = new_agent
 
                         self._empty.append([i,j])
                         self._num_agents_moved += 1
                         
-    def _visualise_animated_grid(self, max_iterations) -> None:
-        """
-        Visualise the grid using plt object.
-        """
-        # grid to plot of results
-        plotGrid = np.zeros((self._grid_size[0], self._grid_size[1]))
-        # black, white and gray
-        colours = ['#49beaa','#ef767a','#456990']
-        cmap = {0: '#ef767a', 1:'#456990', 2:'#49beaa'}
-        labels = {0: 'Group A', 1: 'Group B', 2: 'empty'}
-        patches = [mpatches.Patch(color=cmap[i], label=labels[i]) for i in cmap]
-        tmp = mpl.colors.ListedColormap(colours)
+    # def _visualise_animated_grid(self, max_iterations) -> None:
+    #     """
+    #     Visualise the grid using plt object.
+    #     """
+    #     # grid to plot of results
+    #     plotGrid = np.zeros((self._grid_size[0], self._grid_size[1]))
+    #     # black, white and gray
+    #     colours = ['#49beaa','#ef767a','#456990']
+    #     cmap = {0: '#ef767a', 1:'#456990', 2:'#49beaa'}
+    #     labels = {0: 'Group A', 1: 'Group B', 2: 'empty'}
+    #     patches = [mpatches.Patch(color=cmap[i], label=labels[i]) for i in cmap]
+    #     tmp = mpl.colors.ListedColormap(colours)
 
-        for i in range(self._grid_size[0]):
-            for j in range(self._grid_size[1]):
-                if self.grid[i][j].agent is not None:
-                    plotGrid[i][j] = self.grid[i][j].agent._type
+    #     for i in range(self._grid_size[0]):
+    #         for j in range(self._grid_size[1]):
+    #             if self.grid[i][j].agent is not None:
+    #                 plotGrid[i][j] = self.grid[i][j].agent._type
 
-        plt.imshow(plotGrid, cmap=tmp)
-        plt.legend(handles=patches, shadow=True, facecolor='#6A6175',
-                bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=12)
-        plt.title(f'Iteration: {self._iterations_to_equilibrium}')
-        plt.draw()
+    #     plt.imshow(plotGrid, cmap=tmp)
+    #     plt.legend(handles=patches, shadow=True, facecolor='#6A6175',
+    #             bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=12)
+    #     plt.title(f'Iteration: {self._iterations_to_equilibrium}')
+    #     plt.draw()
 
-        if max_iterations is not None:
-                one_third = round(max_iterations / 3)
-                two_thirds = round(2 * max_iterations / 3)
-                if self._iterations_to_equilibrium == one_third:
-                    plt.savefig(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schellingAtThird.png")
-                if self._iterations_to_equilibrium == two_thirds:
-                    plt.savefig(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schellingAtTwoThird.png")
-                if self._iterations_to_equilibrium == max_iterations:
-                    plt.savefig(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schellingFinished.png")
+    #     if max_iterations is not None:
+    #             one_third = round(max_iterations / 3)
+    #             two_thirds = round(2 * max_iterations / 3)
+    #             if self._iterations_to_equilibrium == one_third:
+    #                 plt.savefig(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schellingAtThird.png")
+    #             if self._iterations_to_equilibrium == two_thirds:
+    #                 plt.savefig(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schellingAtTwoThird.png")
+    #             if self._iterations_to_equilibrium == max_iterations:
+    #                 plt.savefig(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "schellingFinished.png")
 
 
 
@@ -201,24 +227,21 @@ class Schelling:
         """
         # grid to plot of results
         plotGrid = np.zeros((self._grid_size[0], self._grid_size[1]))
-        # black, white and gray
-        colours = ['#49beaa','#ef767a','#456990']
-        cmap = {0: '#ef767a', 1:'#456990', 2:'#49beaa'}
-        labels = {0:'Group A', 1:'Group B', 2:'empty', }
-        patches = [mpatches.Patch(color=cmap[i],label=labels[i]) for i in cmap]
-        tmp = mpl.colors.ListedColormap(colours)
 
         for i in range(self._grid_size[0]):
             for j in range(self._grid_size[1]):
                 if self.grid[i][j].agent is not None:
-                    plotGrid[i][j] = self.grid[i][j].agent._type
+                    agent = self.grid[i][j].agent
+                    plotGrid[i][j] = agent._type * 10 + agent._subgroup_id # Horrible hack to get unique values for each type/subgroup combination
+                else:
+                    plotGrid[i][j] = 0
 
-        plt.imshow(plotGrid, cmap=tmp)
+        # Plotting with colour map
+        plt.imshow(plotGrid, cmap='viridis')
         plt.title(f'Iteration: {self._iterations_to_equilibrium}')
-        plt.legend(handles=patches,shadow=True, facecolor='#6A6175',
-                    bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=12)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
+        plt.colorbar()
         plt.savefig(filename)
         plt.close()
 
@@ -339,7 +362,7 @@ class Schelling:
         plt.xlabel('Number of Iterations')
         plt.ylabel('Overall Satisfaction')
         plt.title('Overall Satisfaction Over Iterations')
-        plt.savefig(self._current_directory + os.sep + "model" + os.sep + "results" + os.sep + "satisifcation_history.png")
+        plt.savefig(os.path.join(self._current_directory, "satisfaction_history.png"))
 
     def _create_metrics(self) -> float:
         """
@@ -372,5 +395,5 @@ class Schelling:
 if __name__ == "__main__":
     schelling = Schelling((50,50), 90, 2, 0.6, 0.3, (20,20), (30,30), 0.5, 0.5, 1)    
     schelling.run_simulation(max_iterations=100)
-    schelling._create_metrics()
+    # schelling._create_metrics()
     schelling._plot_satisfaction_history()
