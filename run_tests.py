@@ -9,6 +9,7 @@ import argparse
 
 if __name__ == '__main__':
     # Parse command line arguments
+    print(sys.argv)
     parser = argparse.ArgumentParser(description='Run Schelling model')
     parser.add_argument('--n_agents', type=int, default=2, help='Number of agents')
     parser.add_argument('--n_iterations', type=int, default=1000, help='Number of iterations')
@@ -38,7 +39,23 @@ if __name__ == '__main__':
                         args.test
                     )
     
+
+    print("Running model with the following parameters:")
+    print("Number of agents: ", args.n_agents)
+    print("Number of iterations: ", args.n_iterations)
+    print("Grid size: ", args.grid_size)
+    print("Occupied ratio: ", args.occupied_ratio)
+    print("Tolerance higher: ", args.tolerance_higher)
+    print("Tolerance lower: ", args.tolerance_lower)
+    print("Land start: ", args.land_start)
+    print("Land end: ", args.land_end)
+    print("Land value: ", args.land_value)
+    print("Neighbour satisfaction: ", args.neighbour_satisfaction)
+    print("Neighbour to land weight: ", args.neighbour_to_land_weight)
+    print("Test: ", args.test)
     model.run_simulation(args.n_iterations)
+    print("Simulation complete. Plotting results...")
     model._plot_satisfaction_history()
+    print("Done. Exiting...")
     
 
