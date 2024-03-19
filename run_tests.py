@@ -21,7 +21,7 @@ if __name__ == '__main__':
     parser.add_argument('--land_value', type=float, default=0.5, help='Land value')
     parser.add_argument('--neighbour_satisfaction', type=float, default=0.5, help='Neighbour satisfaction')
     parser.add_argument('--neighbour_to_land_weight', type=float, default=1.0, help='Neighbour to land weight')
-
+    parser.add_argument('--test', type=str, default=None, help='Name of folder to save test results to')
     args = parser.parse_args()
 
     # Run the model
@@ -34,7 +34,8 @@ if __name__ == '__main__':
                         args.land_end,
                         args.land_value,
                         args.neighbour_satisfaction,
-                        args.neighbour_to_land_weight
+                        args.neighbour_to_land_weight,
+                        args.test
                     )
     
     model.run_simulation(args.n_iterations)

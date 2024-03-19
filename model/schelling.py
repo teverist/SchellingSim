@@ -1,6 +1,6 @@
 # This file contains the Schelling class, used to simulate Schelling's model of segregation.
 import matplotlib
-matplotlib.use("TkAgg")
+#matplotlib.use("TkAgg")
 
 from matplotlib import animation
 import numpy as np
@@ -21,7 +21,7 @@ class GridPoint:
 
 
 class Schelling:
-    def __init__(self, grid_size: tuple, vacant_ratio: int, num_groups: int, tolerance_higher: float, tolerance_lower: float, valuable_area_start: tuple, valuable_area_end: tuple, land_value: float, neighbor_satisfaction: float, neighbour_to_land_value_weight: float) -> None:
+    def __init__(self, grid_size: tuple, vacant_ratio: int, num_groups: int, tolerance_higher: float, tolerance_lower: float, valuable_area_start: tuple, valuable_area_end: tuple, land_value: float, neighbor_satisfaction: float, neighbour_to_land_value_weight: float, test_name: str) -> None:
         """
         Initialise the Schelling's model simulation.
 
@@ -50,8 +50,11 @@ class Schelling:
         self._previous = [self._grid_size[0]-1]
         self._previous.extend([i for i in range(self._grid_size[0]-1)])
         self._satisfaction_history = []
+        self._high_value_satisfaction_history = []
+        self._low_value_satisfaction_history = []
         self._base_neighbour_satisfaction = neighbor_satisfaction
         self._neighbour_to_land_weight = neighbour_to_land_value_weight
+        self.test_name = test_name
 
         # Logging metrics
         self._iterations_to_equilibrium: int = 0
@@ -62,7 +65,7 @@ class Schelling:
         # Set directory for results
         # results in results/{high_tolerance}_{low_tolerance}_{valuable_area_start}_{valuable_area_end}_{land_value}_{neighbour_satisfaction}_{neighbour_to_land_value_weight}
         self._current_directory = os.getcwd()
-        self._current_directory = os.path.join(self._current_directory, "results", f"{int(self._tolerance_higher*100)}_{int(self._tolerance_lower*100)}_{int(land_value*100)}_{int(neighbour_to_land_value_weight*100)}")
+        self._current_directory = os.path.join(self._current_directory, "results", self.test_name, f"{int(self._tolerance_higher*100)}_{int(self._tolerance_lower*100)}_{int(land_value*100)}_{int(neighbour_to_land_value_weight*100)}")
         if not os.path.exists(self._current_directory):
             os.makedirs(self._current_directory)
 
@@ -155,12 +158,60 @@ class Schelling:
                 self._visualise_grid(os.path.join(self._current_directory, "schellingAtTwoThird.png"))
 
             current_satisfaction = self._calculate_average_satisfaction()
+            high_value_satisfaction = self._calculate_high_value_satisfaction()
+            low_value_satisfaction = self._calculate_low_value_satisfaction()
             self._satisfaction_history.append(current_satisfaction)
+            self._high_value_satisfaction_history.append(high_value_satisfaction)
+            self._low_value_satisfaction_history.append(low_value_satisfaction)
             if current_satisfaction == 1:
                 break
         
         self._visualise_grid(os.path.join(self._current_directory, "schellingFinished.png"))
+    
+    ## Maybe TODO: Turn these three methods into one
+    def _calculate_high_value_satisfaction(self) -> float:
+        # Calculate the average satisfaction of agents in the valuable area
+        total_satisfaction = 0
+        total_agents = 0
+
+        start_x, start_y = self._valuable_area_start
+        end_x, end_y = self._valuable_area_end
+
+        for i in range(start_x, end_x):
+            for j in range(start_y, end_y):
+                current_cell = self.grid[i][j]
+                if current_cell.agent is not None:
+                    total_satisfaction += self._calculate_agent_satisfaction(i, j)
+                    total_agents += 1
+
+        if total_agents == 0:
+            return 0
         
+        average_satisfaction = total_satisfaction / total_agents
+        return average_satisfaction
+    
+    def _calculate_low_value_satisfaction(self) -> float:
+        # Calculate the average satisfaction of agents in the valuable area
+        total_satisfaction = 0
+        total_agents = 0
+
+        start_x, start_y = self._valuable_area_start
+        end_x, end_y = self._valuable_area_end
+
+        for i in range(self._grid_size[0]):
+            for j in range(self._grid_size[1]):
+                if i < start_x or i >= end_x or j < start_y or j >= end_y:
+                    current_cell = self.grid[i][j]
+                    if current_cell.agent is not None:
+                        total_satisfaction += self._calculate_agent_satisfaction(i, j)
+                        total_agents += 1
+
+        if total_agents == 0:
+            return 0
+        
+        average_satisfaction = total_satisfaction / total_agents
+        return average_satisfaction
+
     
     def _update_grid(self) -> None:
         """
@@ -358,11 +409,22 @@ class Schelling:
         
         
     def _plot_satisfaction_history(self):
-        plt.plot(range(1, self._iterations_to_equilibrium + 1), self._satisfaction_history)
+        # plt.plot(range(1, self._iterations_to_equilibrium + 1), self._satisfaction_history)
+        # plt.xlabel('Number of Iterations')
+        # plt.ylabel('Overall Satisfaction')
+        # plt.title('Overall Satisfaction Over Iterations')
+        # plt.savefig(os.path.join(self._current_directory, "satisfaction_history.png"))
+
+        plt.plot(range(1, self._iterations_to_equilibrium + 1), self._high_value_satisfaction_history, label="Valuable Area Satisfaction")
+        plt.plot(range(1, self._iterations_to_equilibrium + 1), self._low_value_satisfaction_history, label="Non-Valuable Area Satisfaction")
+        plt.plot(range(1, self._iterations_to_equilibrium + 1), self._satisfaction_history, label="Overall Satisfaction")
         plt.xlabel('Number of Iterations')
-        plt.ylabel('Overall Satisfaction')
-        plt.title('Overall Satisfaction Over Iterations')
+        plt.ylabel('Satisfaction')
+        plt.title('Satisfaction Over Iterations')
+        plt.legend()
         plt.savefig(os.path.join(self._current_directory, "satisfaction_history.png"))
+
+
 
     def _create_metrics(self) -> float:
         """
@@ -393,7 +455,7 @@ class Schelling:
             6th & 7th: valuable area start & end
 """
 if __name__ == "__main__":
-    schelling = Schelling((50,50), 90, 2, 0.6, 0.3, (20,20), (30,30), 0.5, 0.5, 1)    
+    schelling = Schelling((50,50), 90, 2, 0.6, 0.3, (20,20), (30,30), 0.5, 0.5, 1, test_name="test")    
     schelling.run_simulation(max_iterations=100)
     # schelling._create_metrics()
     schelling._plot_satisfaction_history()
